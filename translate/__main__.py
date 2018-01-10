@@ -296,4 +296,5 @@ def main(args=None):
 if __name__ == '__main__':
     # __main__ --> multitask_model.py --> translation_model.py --> seq2seq_model.py --> models.py --> conv_lstm.py
     #                                                                                             --> beam_search.py
+    # Test
     main()
