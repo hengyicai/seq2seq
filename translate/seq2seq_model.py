@@ -76,8 +76,10 @@ class Seq2SeqModel(object):
         self.rewards = tf.placeholder(tf.float32, shape=[None, None], name='rewards')
 
         if chained_encoders and pred_edits:
+             utils.log("architecture = models.chained_encoder_decoder")
              architecture = models.chained_encoder_decoder    # no REINFORCE for now
         else:
+             utils.log("architecture = models.encoder_decoder")
              architecture = models.encoder_decoder
         # elif dual_output or pred_edits:
         #     architecture = models.multi_encoder_decoder
