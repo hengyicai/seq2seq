@@ -1140,7 +1140,7 @@ def sequence_loss(logits, targets, weights,
         total_size += 1e-12  # just to avoid division by 0 for all-0 weights
         log_perp /= total_size
 
-    if not atten_weights:
+    if atten_weights is not None:
         # 确保 atten_weights 的 shape 已知
         utils.log("Use custom cost function!")
         cost = tf.reduce_sum(log_perp) + tf.reduce_sum(atten_weights)
