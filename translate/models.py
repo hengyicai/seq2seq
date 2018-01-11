@@ -980,8 +980,9 @@ def encoder_decoder(encoders, decoders, encoder_inputs, targets, feed_previous, 
         **parameters
     )
     # TODO: figure out the attention_weights
-    attention_weights = tf.Print(attention_weights, [attention_weights], "Attention weights-->")
-
+    # attention_weights = tf.Print(attention_weights, [attention_weights], "Attention weights-->")
+    utils.debug("attention_weights")
+    utils.debug(attention_weights)
     if use_baseline:
         baseline_rewards = reinforce_baseline(outputs, rewards)  # FIXME: use logits or decoder outputs?
         baseline_weights = get_weights(samples, utils.EOS_ID, include_first_eos=False)
@@ -1114,7 +1115,11 @@ def softmax(logits, dim=-1, mask=None):
     return e / tf.clip_by_value(tf.reduce_sum(e, axis=dim, keep_dims=True), 10e-37, 10e+37)
 
 
-def sequence_loss(logits, targets, weights, average_across_timesteps=False, average_across_batch=True, rewards=None):
+def sequence_loss(logits, targets, weights,
+                  average_across_timesteps=False,
+                  average_across_batch=True,
+                  rewards=None,
+                  atten_weights=None):
     batch_size = tf.shape(targets)[0]
     time_steps = tf.shape(targets)[1]
 
