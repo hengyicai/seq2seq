@@ -237,8 +237,9 @@ class Seq2SeqModel(object):
             output_feed['weights'] = self.attention_weights
         output_feed['weights'] = self.attention_weights
         res = tf.get_default_session().run(output_feed, input_feed)
+
         utils.log("output_feed['weights'] -->")
-        utils.log(output_feed['weights'])
+        utils.log(output_feed['weights'].eval)
         return namedtuple('output', 'loss weights')(res['loss'], res.get('weights'))
 
     def greedy_decoding(self, token_ids, align=False):

@@ -996,7 +996,8 @@ def encoder_decoder(encoders, decoders, encoder_inputs, targets, feed_previous, 
                                    rewards=baseline_rewards)
 
     target_weights = get_weights(targets[:, 1:], utils.EOS_ID, include_first_eos=True)
-    xent_loss = sequence_loss(logits=outputs, targets=targets[:, 1:], weights=target_weights)
+    xent_loss = sequence_loss(logits=outputs, targets=targets[:, 1:], weights=target_weights,
+                              atten_weights=attention_weights)
     losses = [xent_loss, reinforce_loss, baseline_loss_]
 
     return losses, [outputs], encoder_state, attention_states, attention_weights, samples, beam_fun, initial_data
@@ -1139,7 +1140,12 @@ def sequence_loss(logits, targets, weights,
         total_size += 1e-12  # just to avoid division by 0 for all-0 weights
         log_perp /= total_size
 
-    cost = tf.reduce_sum(log_perp)
+    if not atten_weights:
+        # 确保 atten_weights 的 shape 已知
+        utils.log("Use custom cost function!")
+        cost = tf.reduce_sum(log_perp) + tf.reduce_sum(atten_weights)
+    else:
+        cost = tf.reduce_sum(log_perp)
 
     if average_across_batch:
         return cost / tf.to_float(batch_size)
