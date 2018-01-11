@@ -13,6 +13,7 @@ def auto_reuse(fun):
     This is rather risky, as it can lead to reusing variables
     by mistake.
     """
+
     def fun_(*args, **kwargs):
         try:
             return fun(*args, **kwargs)
@@ -22,6 +23,7 @@ def auto_reuse(fun):
                     return fun(*args, **kwargs)
             else:
                 raise e
+
     return fun_
 
 
@@ -34,6 +36,7 @@ class CellWrapper(RNNCell):
     Wrapper around LayerNormBasicLSTMCell, BasicLSTMCell and MultiRNNCell, to keep
     the state_is_tuple=False behavior (soon to be deprecated).
     """
+
     def __init__(self, cell):
         super(CellWrapper, self).__init__()
         self.cell = cell
@@ -77,7 +80,7 @@ def multi_encoder(encoder_inputs, encoders, encoder_input_length, other_inputs=N
         # create embeddings in the global scope (allows sharing between encoder and decoder)
         weight_scale = encoder.embedding_weight_scale or encoder.weight_scale
         if weight_scale is None:
-            initializer = None   # FIXME
+            initializer = None  # FIXME
         elif encoder.embedding_initializer == 'uniform' or (encoder.embedding_initializer is None
                                                             and encoder.initializer == 'uniform'):
             initializer = tf.random_uniform_initializer(minval=-weight_scale, maxval=weight_scale)
@@ -246,7 +249,7 @@ def multi_encoder(encoder_inputs, encoders, encoder_input_length, other_inputs=N
                     raise NotImplementedError
 
                 stride = encoder.maxout_stride
-                k = tf.to_int32(tf.ceil(time_steps / stride) * stride) - time_steps   # TODO: simpler
+                k = tf.to_int32(tf.ceil(time_steps / stride) * stride) - time_steps  # TODO: simpler
                 pad = tf.zeros([batch_size, k, tf.shape(encoder_inputs_)[2]])
                 encoder_inputs_ = tf.concat([encoder_inputs_, pad], axis=1)
                 encoder_inputs_ = tf.nn.pool(encoder_inputs_, window_shape=[stride], pooling_type='MAX',
@@ -301,7 +304,7 @@ def multi_encoder(encoder_inputs, encoders, encoder_input_length, other_inputs=N
                 with tf.variable_scope(tf.get_variable_scope(), initializer=initializer):
                     try:
                         encoder_outputs_, _, encoder_states_ = rnn(reuse=False)
-                    except ValueError:   # Multi-task scenario where we're reusing the same RNN parameters
+                    except ValueError:  # Multi-task scenario where we're reusing the same RNN parameters
                         encoder_outputs_, _, encoder_states_ = rnn(reuse=True)
             else:
                 if encoder.time_pooling or encoder.final_state == 'concat_last':
@@ -328,7 +331,7 @@ def multi_encoder(encoder_inputs, encoders, encoder_input_length, other_inputs=N
             last_forward = tf.gather_nd(encoder_outputs_[:, :, :cell_output_size], indices)
             last_forward.set_shape([None, cell_output_size])
 
-            if encoder.final_state == 'concat_last': # concats last states of all backward layers (full LSTM states)
+            if encoder.final_state == 'concat_last':  # concats last states of all backward layers (full LSTM states)
                 encoder_state_ = tf.concat(encoder_states_, axis=1)
             elif encoder.final_state == 'average':
                 mask = tf.sequence_mask(encoder_input_length_, maxlen=tf.shape(encoder_outputs_)[1], dtype=tf.float32)
@@ -342,7 +345,7 @@ def multi_encoder(encoder_inputs, encoders, encoder_input_length, other_inputs=N
                 encoder_state_ = tf.concat([last_forward, last_backward], axis=1)
             elif encoder.final_state == 'none':
                 encoder_state_ = tf.zeros(shape=[batch_size, 0])
-            elif encoder.bidir and not encoder.final_state == 'last_forward':   # last backward hidden state
+            elif encoder.bidir and not encoder.final_state == 'last_forward':  # last backward hidden state
                 encoder_state_ = last_backward
             else:  # last forward hidden state
                 encoder_state_ = last_forward
@@ -758,7 +761,7 @@ def attention_decoder(decoder_inputs, initial_state, attention_states, encoders,
 
     def generate(state, input_, context):
         if decoder.pred_use_lstm_state is False:  # for back-compatibility
-             state = state[:,-cell_output_size:]
+            state = state[:, -cell_output_size:]
 
         projection_input = [state, context]
         if decoder.use_previous_word:
@@ -802,7 +805,7 @@ def attention_decoder(decoder_inputs, initial_state, attention_states, encoders,
             output_ = dense(output_, decoder.vocab_size, use_bias=True, name='softmax1')
         return output_
 
-    if decoder.use_dropout:   # FIXME: why no pervasive dropout here?
+    if decoder.use_dropout:  # FIXME: why no pervasive dropout here?
         initial_state = tf.nn.dropout(initial_state, keep_prob=decoder.initial_state_keep_prob)
 
     with tf.variable_scope(scope_name):
@@ -908,7 +911,7 @@ def attention_decoder(decoder_inputs, initial_state, attention_states, encoders,
         predicted_symbol = tf.case([
             (use_target, target),
             (tf.logical_not(feed_argmax), softmax)],
-            default=argmax)   # default case is useful for beam-search
+            default=argmax)  # default case is useful for beam-search
 
         predicted_symbol.set_shape([None])
         predicted_symbol = tf.stop_gradient(predicted_symbol)
@@ -976,9 +979,11 @@ def encoder_decoder(encoders, decoders, encoder_inputs, targets, feed_previous, 
         decoder_inputs=targets[:, :-1], align_encoder_id=align_encoder_id, encoder_input_length=encoder_input_length,
         **parameters
     )
+    # TODO: figure out the attention_weights
+    attention_weights = tf.Print(attention_weights, [attention_weights], "Attention weights-->")
 
     if use_baseline:
-        baseline_rewards = reinforce_baseline(outputs, rewards)   # FIXME: use logits or decoder outputs?
+        baseline_rewards = reinforce_baseline(outputs, rewards)  # FIXME: use logits or decoder outputs?
         baseline_weights = get_weights(samples, utils.EOS_ID, include_first_eos=False)
         baseline_loss_ = baseline_loss(rewards=baseline_rewards, weights=baseline_weights)
     else:
@@ -1085,7 +1090,7 @@ def chained_encoder_decoder(encoders, decoders, encoder_inputs, targets, feed_pr
 
     outputs, attention_weights, _, _, samples, beam_fun, initial_data = attention_decoder(
         attention_states=attention_states, initial_state=encoder_state,
-        feed_previous=feed_previous, decoder_inputs=targets[:,:-1],
+        feed_previous=feed_previous, decoder_inputs=targets[:, :-1],
         align_encoder_id=align_encoder_id, encoder_input_length=encoder_input_length[:1],
         **parameters
     )
@@ -1144,7 +1149,7 @@ def get_weights(sequence, eos_id, include_first_eos=True):
     weights = tf.to_float(tf.equal(cumsum, tf.to_float(range_)))
 
     if include_first_eos:
-        weights = weights[:,:-1]
+        weights = weights[:, :-1]
         shape = [tf.shape(weights)[0], 1]
         weights = tf.concat([tf.ones(tf.stack(shape)), weights], axis=1)
 
