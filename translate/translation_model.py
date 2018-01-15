@@ -362,7 +362,7 @@ class TranslationModel:
 
             try:
                 if output_ is not None:
-                    output_file = open(output_, 'w' , encoding='utf-8')
+                    output_file = open(output_, 'w', encoding='utf-8')
 
                 lines_ = list(zip(*lines))
 
@@ -512,7 +512,8 @@ class TranslationModel:
         else:
             step_function = self.seq2seq_model.step
 
-        res = step_function(next(self.batch_iterator), update_model=True, use_sgd=self.training.use_sgd,align =True,
+        next_data = next(self.batch_iterator)
+        res = step_function(next_data, update_model=True, use_sgd=self.training.use_sgd, align=True,
                             update_baseline=True)
 
         self.training.loss += res.loss
@@ -522,7 +523,9 @@ class TranslationModel:
         print(len(res.weights[0]))
         print(len(res.weights[0][0]))
         print(sum(res.weights[0][0]))
-        #self.atten_weight = res.weight
+        utils.log("next_data")
+        utils.log(next_data)
+        # self.atten_weight = res.weight
 
         self.training.time += time.time() - start_time
         self.training.steps += 1
@@ -545,7 +548,7 @@ class TranslationModel:
                     self.learning_rate.assign(sgd_learning_rate).eval()
                 self.training.last_decay = global_step  # reset learning rate decay
 
-        #if steps_per_checkpoint and global_step % steps_per_checkpoint == 0:
+        # if steps_per_checkpoint and global_step % steps_per_checkpoint == 0:
         #    symmary = 'attention weight: {}'.format(self.atten_weight)
         #    utils.log(summary)
 
