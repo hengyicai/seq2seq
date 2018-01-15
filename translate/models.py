@@ -983,6 +983,10 @@ def encoder_decoder(encoders, decoders, encoder_inputs, targets, feed_previous, 
     # attention_weights = tf.Print(attention_weights, [attention_weights], "Attention weights-->")
     utils.debug("attention_weights")
     utils.debug(attention_weights)
+    utils.debug("encoder_inputs")
+    utils.debug(encoder_inputs)
+    utils.debug("targets")
+    utils.debug(targets)
     if use_baseline:
         baseline_rewards = reinforce_baseline(outputs, rewards)  # FIXME: use logits or decoder outputs?
         baseline_weights = get_weights(samples, utils.EOS_ID, include_first_eos=False)
@@ -1143,7 +1147,7 @@ def sequence_loss(logits, targets, weights,
     if atten_weights is not None:
         # 确保 atten_weights 的 shape 已知
         utils.log("Use custom cost function!")
-        cost = tf.reduce_sum(log_perp) + tf.reduce_sum(atten_weights)
+        cost = tf.reduce_sum(log_perp)
     else:
         cost = tf.reduce_sum(log_perp)
 
