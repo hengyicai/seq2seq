@@ -968,7 +968,8 @@ def encoder_decoder(encoders, decoders, encoder_inputs, targets, feed_previous, 
             weights = get_weights(encoder_inputs_, utils.EOS_ID, include_first_eos=True)
             encoder_input_length.append(tf.to_int32(tf.reduce_sum(weights, axis=1)))
     utils.log("Test tf Print")
-    encoder_inputs = tf.Print(encoder_inputs, [encoder_inputs, tf.shape(encoder_inputs), "test"])
+    encoder_inputs = tf.get_default_session().run(
+        tf.Print(encoder_inputs, [encoder_inputs, tf.shape(encoder_inputs), "test"]))
     parameters = dict(encoders=encoders, decoder=decoder, encoder_inputs=encoder_inputs,
                       feed_argmax=feed_argmax, training=training)
 
