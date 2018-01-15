@@ -73,6 +73,12 @@ class Seq2SeqModel(object):
             tf.placeholder(tf.int32, shape=[None, None], name='target_{}'.format(decoder.name))
             for decoder in decoders
         ])
+
+        self.true_alignments = tuple([
+            tf.placeholder(tf.float32, shape=[None, None], name='py_alignment_{}'.format(decoder.name))
+            for decoder in decoders
+        ]
+        )
         self.rewards = tf.placeholder(tf.float32, shape=[None, None], name='rewards')
 
         if chained_encoders and pred_edits:
@@ -217,6 +223,10 @@ class Seq2SeqModel(object):
         return namedtuple('output', 'loss weights baseline_loss')(res['loss'], res.get('weights'),
                                                                   res.get('baseline_loss'))
 
+    def calculate_true_alignments(self, encoder_inputs, targets, input_length):
+
+        pass
+
     def step(self, data, update_model=True, align=False, use_sgd=False, **kwargs):
         if update_model:
             self.dropout_on.run()
@@ -224,7 +234,12 @@ class Seq2SeqModel(object):
             self.dropout_off.run()
 
         encoder_inputs, targets, input_length = self.get_batch(data)
-        input_feed = {self.targets: targets, self.training: True}
+        true_alignments = self.calculate_true_alignments(encoder_inputs, targets, input_length)
+        input_feed = {
+            self.targets: targets,
+            self.training: True,
+            self.true_alignments: true_alignments
+        }
 
         for i in range(len(self.encoders)):
             input_feed[self.encoder_inputs[i]] = encoder_inputs[i]

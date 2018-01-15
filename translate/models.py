@@ -956,7 +956,7 @@ def attention_decoder(decoder_inputs, initial_state, attention_states, encoders,
     return outputs, weights, states, attns, samples, get_logits, initial_data
 
 
-def encoder_decoder(encoders, decoders, encoder_inputs, targets, feed_previous, align_encoder_id=0,
+def encoder_decoder(encoders, decoders, encoder_inputs, targets, feed_previous, true_alignments, align_encoder_id=0,
                     encoder_input_length=None, feed_argmax=True, rewards=None, use_baseline=True,
                     training=True, **kwargs):
     decoder = decoders[0]
@@ -968,8 +968,8 @@ def encoder_decoder(encoders, decoders, encoder_inputs, targets, feed_previous, 
             weights = get_weights(encoder_inputs_, utils.EOS_ID, include_first_eos=True)
             encoder_input_length.append(tf.to_int32(tf.reduce_sum(weights, axis=1)))
     utils.log("Test tf Print")
-    encoder_inputs = tf.get_default_session().run(
-        tf.Print(encoder_inputs, [encoder_inputs, tf.shape(encoder_inputs), "test"]))
+    # encoder_inputs = tf.get_default_session().run(
+    #    tf.Print(encoder_inputs, [encoder_inputs, tf.shape(encoder_inputs), "test"]))
     parameters = dict(encoders=encoders, decoder=decoder, encoder_inputs=encoder_inputs,
                       feed_argmax=feed_argmax, training=training)
 
@@ -1004,7 +1004,7 @@ def encoder_decoder(encoders, decoders, encoder_inputs, targets, feed_previous, 
 
     target_weights = get_weights(targets[:, 1:], utils.EOS_ID, include_first_eos=True)
     xent_loss = sequence_loss(logits=outputs, targets=targets[:, 1:], weights=target_weights,
-                              atten_weights=attention_weights)
+                              atten_weights=attention_weights, true_alignments=true_alignments)
     losses = [xent_loss, reinforce_loss, baseline_loss_]
 
     return losses, [outputs], encoder_state, attention_states, attention_weights, samples, beam_fun, initial_data
@@ -1127,7 +1127,8 @@ def sequence_loss(logits, targets, weights,
                   average_across_timesteps=False,
                   average_across_batch=True,
                   rewards=None,
-                  atten_weights=None):
+                  atten_weights=None,
+                  true_alignments=None):
     batch_size = tf.shape(targets)[0]
     time_steps = tf.shape(targets)[1]
 
@@ -1147,10 +1148,10 @@ def sequence_loss(logits, targets, weights,
         total_size += 1e-12  # just to avoid division by 0 for all-0 weights
         log_perp /= total_size
 
-    if atten_weights is not None:
+    if atten_weights is not None and true_alignments is not None:
         # 确保 atten_weights 的 shape 已知
         utils.log("Use custom cost function!")
-        cost = tf.reduce_sum(log_perp)
+        cost = tf.reduce_sum(log_perp) + tf.multiply(tf.nn.l2_loss(tf.subtract(true_alignments, atten_weights)), 2)
     else:
         cost = tf.reduce_sum(log_perp)
 
