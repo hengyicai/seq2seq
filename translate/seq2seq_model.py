@@ -76,9 +76,11 @@ class Seq2SeqModel(object):
         self.rewards = tf.placeholder(tf.float32, shape=[None, None], name='rewards')
 
         if chained_encoders and pred_edits:
-             architecture = models.chained_encoder_decoder    # no REINFORCE for now
+            utils.log("architecture = models.chained_encoder_decoder")
+            architecture = models.chained_encoder_decoder  # no REINFORCE for now
         else:
-             architecture = models.encoder_decoder
+            utils.log("architecture = models.encoder_decoder")
+            architecture = models.encoder_decoder
         # elif dual_output or pred_edits:
         #     architecture = models.multi_encoder_decoder
 
@@ -90,7 +92,7 @@ class Seq2SeqModel(object):
          self.samples, self.beam_fun, self.initial_data) = tensors
 
         self.xent_loss, self.reinforce_loss, self.baseline_loss = self.losses
-        self.loss = self.xent_loss   # main loss
+        self.loss = self.xent_loss  # main loss
 
         optimizers = self.get_optimizers(optimizer, learning_rate)
 
@@ -195,7 +197,7 @@ class Seq2SeqModel(object):
         def compute_rewards(outputs, targets):
             return np.array([compute_reward(output, target) for output, target in zip(outputs, targets)])
 
-        rewards = compute_rewards(samples, targets[0][:,1:])
+        rewards = compute_rewards(samples, targets[0][:, 1:])
         rewards = np.stack([rewards] * samples.shape[1], axis=1)
 
         input_feed[self.outputs[0]] = outputs[0]
@@ -233,10 +235,14 @@ class Seq2SeqModel(object):
             output_feed['update'] = self.update_ops.xent[1] if use_sgd else self.update_ops.xent[0]
         if align:
             output_feed['weights'] = self.attention_weights
-
+        output_feed['weights'] = self.attention_weights
         res = tf.get_default_session().run(output_feed, input_feed)
         #print(self.attention_weights,self.attention_weights[0].get_shape(),self.attention_weights[0])
         #print("res\t",res)
+
+        utils.log("output_feed['weights'] -->")
+        utils.log(output_feed['weights'])
+        output_feed['weights'] = tf.Print(input_=output_feed['weights'], data=[output_feed['weights']])
         return namedtuple('output', 'loss weights')(res['loss'], res.get('weights'))
 
     def greedy_decoding(self, token_ids, align=False):
@@ -265,7 +271,7 @@ class Seq2SeqModel(object):
             output_feed['weights'] = self.attention_weights
 
         res = tf.get_default_session().run(output_feed, input_feed)
-        return [res['outputs'][:,0,:]], res.get('weights')
+        return [res['outputs'][:, 0, :]], res.get('weights')
 
     def get_batch(self, data, decoding=False):
         """
@@ -302,7 +308,7 @@ class Seq2SeqModel(object):
                 pad_symbol = np.zeros(encoder.embedding_size, dtype=np.float32) if encoder.binary else utils.EOS_ID
                 # pad sequences so that all sequences in the same batch have the same length
 
-                eos = 0 if encoder.binary else 1   # end of sentence marker for non-binary input
+                eos = 0 if encoder.binary else 1  # end of sentence marker for non-binary input
                 encoder_pad = [pad_symbol] * (eos + max_input_len[i] - len(src_sentence))
 
                 if self.reverse_input:

@@ -30,7 +30,7 @@ class TranslationModel:
             self.character_level[encoder_or_decoder.ext] = encoder_or_decoder.character_level
             self.binary.append(encoder_or_decoder.get('binary', False))
 
-        self.encoders, self.decoders =  encoders, decoders
+        self.encoders, self.decoders = encoders, decoders
 
         self.char_output = decoders[0].character_level
 
@@ -53,7 +53,7 @@ class TranslationModel:
         self.max_output_len = [decoder.max_len for decoder in decoders]
 
         if truncate_lines:
-            self.max_len = None   # we let seq2seq.get_batch handle long lines (by truncating them)
+            self.max_len = None  # we let seq2seq.get_batch handle long lines (by truncating them)
         else:  # the line reader will drop lines that are too long
             self.max_len = dict(zip(self.extensions, self.max_input_len + self.max_output_len))
 
@@ -73,7 +73,7 @@ class TranslationModel:
 
         for encoder_or_decoder, vocab in zip(encoders + decoders, self.vocabs):
             if vocab:
-                if encoder_or_decoder.vocab_size:   # reduce vocab size
+                if encoder_or_decoder.vocab_size:  # reduce vocab size
                     vocab.reverse[:] = vocab.reverse[:encoder_or_decoder.vocab_size]
                     for token, token_id in list(vocab.vocab.items()):
                         if token_id >= encoder_or_decoder.vocab_size:
@@ -149,7 +149,7 @@ class TranslationModel:
     def decode_batch(self, sentence_tuples, batch_size, remove_unk=False, fix_edits=True, unk_replace=False,
                      align=False, reverse=False, output=None):
         if batch_size == 1:
-            batches = ([sentence_tuple] for sentence_tuple in sentence_tuples)   # lazy
+            batches = ([sentence_tuple] for sentence_tuple in sentence_tuples)  # lazy
         else:
             batch_count = int(math.ceil(len(sentence_tuples) / batch_size))
             batches = [sentence_tuples[i * batch_size:(i + 1) * batch_size] for i in range(batch_count)]
@@ -173,7 +173,7 @@ class TranslationModel:
                 trg_tokens = []
 
                 for trg_token_ids_, vocab in zip(trg_token_ids, self.trg_vocab):
-                    trg_token_ids_ = list(trg_token_ids_)   # from np array to list
+                    trg_token_ids_ = list(trg_token_ids_)  # from np array to list
                     if utils.EOS_ID in trg_token_ids_:
                         trg_token_ids_ = trg_token_ids_[:trg_token_ids_.index(utils.EOS_ID)]
 
@@ -188,14 +188,14 @@ class TranslationModel:
                     src_tokens_ = [token if token in self.src_vocab[0].vocab else utils._UNK for token in src_tokens_]
                     trg_tokens_ = trg_tokens[0][:weights_.shape[0] - 1] + [utils._EOS]
 
-                    weights_ = weights_[:len(trg_tokens_),:len(src_tokens_)]
+                    weights_ = weights_[:len(trg_tokens_), :len(src_tokens_)]
                     output_file = output and '{}.{}.pdf'.format(output, line_id)
                     utils.heatmap(src_tokens_, trg_tokens_, weights_, reverse=reverse, output_file=output_file)
 
                 if unk_replace:
                     weights = batch_weights[sentence_id]
                     src_words = src_tokens[0].split()
-                    align_ids = np.argmax(weights[:,:len(src_words)], axis=1)
+                    align_ids = np.argmax(weights[:, :len(src_words)], axis=1)
 
                     def replace(token, align_id):
                         if token == utils._UNK:
@@ -203,6 +203,7 @@ class TranslationModel:
                             if not token[0].isupper() and self.lexicon is not None and token in self.lexicon:
                                 token = self.lexicon[token]
                         return token
+
                     trg_tokens[0] = [replace(token, align_id) for align_id, token in zip(align_ids, trg_tokens[0])]
 
                 if self.pred_edits:
@@ -225,7 +226,6 @@ class TranslationModel:
                     hypothesis = ' '.join(trg_tokens).replace('@@ ', '')  # merge subwords units
 
                 yield hypothesis, raw_hypothesis
-
 
     def align(self, output=None, align_encoder_id=0, reverse=False, **kwargs):
         if len(self.filenames.test) != len(self.extensions):
@@ -280,7 +280,7 @@ class TranslationModel:
             if max_test_size:
                 lines = itertools.islice(lines, max_test_size)
 
-            if not self.filenames.test:   # interactive mode
+            if not self.filenames.test:  # interactive mode
                 batch_size = 1
             else:
                 batch_size = self.batch_size
@@ -377,7 +377,7 @@ class TranslationModel:
                     if self.ref_ext is not None and on_dev:
                         reference = reference[-1]
                     else:
-                        reference = reference[0]   # single output for now
+                        reference = reference[0]  # single output for now
 
                     hypothesis, raw = hypothesis
 
@@ -495,6 +495,14 @@ class TranslationModel:
             utils.debug('learning rate is too small: stopping')
             raise utils.FinishedTrainingException
         if 0 < max_steps <= self.global_step.eval() or 0 < max_epochs <= self.epoch.eval():
+            utils.log("max_steps")
+            utils.log(max_steps)
+            utils.log("self.global_step.eval()")
+            utils.log(self.global_step.eval())
+            utils.log("max_epochs")
+            utils.log(max_epochs)
+            utils.log("self.epoch.eval()")
+            utils.log(self.epoch.eval())
             raise utils.FinishedTrainingException
 
         start_time = time.time()
@@ -524,7 +532,7 @@ class TranslationModel:
 
         if decay_after_n_epoch is not None and self.batch_size * global_step >= decay_after_n_epoch * self.train_size:
             if decay_every_n_epoch is not None and (self.batch_size * (global_step - self.training.last_decay)
-                                                    >= decay_every_n_epoch * self.train_size):
+                                                        >= decay_every_n_epoch * self.train_size):
                 self.learning_rate_decay_op.eval()
                 utils.debug('  decaying learning rate to: {:.3g}'.format(self.learning_rate.eval()))
                 self.training.last_decay = global_step
@@ -564,7 +572,6 @@ class TranslationModel:
             self.training.loss, self.training.time, self.training.steps, self.training.baseline_loss = 0, 0, 0, 0
 
         if steps_per_eval and global_step % steps_per_eval == 0 and 0 <= eval_burn_in <= global_step:
-
             eval_dir = 'eval' if self.name is None else 'eval_{}'.format(self.name)
             eval_output = os.path.join(model_dir, eval_dir)
 
@@ -671,7 +678,7 @@ class TranslationModel:
                             embeddings[word] = np.array(list(map(float, vector.split())))
                 # standardize (mean of 0, std of 0.01)
                 mean = sum(embeddings.values()) / len(embeddings)
-                std = np.sqrt(sum((value - mean)**2 for value in embeddings.values())) / (len(embeddings) - 1)
+                std = np.sqrt(sum((value - mean) ** 2 for value in embeddings.values())) / (len(embeddings) - 1)
                 for key in embeddings:
                     embeddings[key] = 0.01 * (embeddings[key] - mean) / std
 
@@ -711,8 +718,8 @@ class TranslationModel:
 
 
 # hard-coded variables which can also be defined in config file (variable_mapping and reverse_mapping)
-global_variable_mapping = []   # map old names to new names
-global_reverse_mapping = [     # map new names to old names
+global_variable_mapping = []  # map old names to new names
+global_reverse_mapping = [  # map new names to old names
     (r'decoder_(.*?)/.*/initial_state_projection/', r'decoder_\1/initial_state_projection/'),
 ]
 

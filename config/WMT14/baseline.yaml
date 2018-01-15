@@ -22,7 +22,8 @@ batch_size: 80
 batch_mode: standard
 read_ahead: 20
 max_gradient_norm: 1.0
-max_epochs: 5
+# max_epochs: 5
+max_epochs: 10
 learning_rate_decay_factor: 0.5
 decay_every_n_epoch: 0.5
 
