@@ -1,3 +1,4 @@
+# coding=utf-8
 import tensorflow as tf
 import os
 import pickle
@@ -361,7 +362,7 @@ class TranslationModel:
 
             try:
                 if output_ is not None:
-                    output_file = open(output_, 'w')
+                    output_file = open(output_, 'w' , encoding='utf-8')
 
                 lines_ = list(zip(*lines))
 
@@ -386,8 +387,8 @@ class TranslationModel:
                     if output_file is not None:
                         if raw_output:
                             hypothesis = raw
-
-                        output_file.write(hypothesis + '\n')
+                        line = hypothesis + '\n'
+                        output_file.write(line)
                         output_file.flush()
 
             finally:
@@ -503,11 +504,17 @@ class TranslationModel:
         else:
             step_function = self.seq2seq_model.step
 
-        res = step_function(next(self.batch_iterator), update_model=True, use_sgd=self.training.use_sgd,
+        res = step_function(next(self.batch_iterator), update_model=True, use_sgd=self.training.use_sgd,align =True,
                             update_baseline=True)
 
         self.training.loss += res.loss
         self.training.baseline_loss += getattr(res, 'baseline_loss', 0)
+        print(res.weights)
+        print(len(res.weights))
+        print(len(res.weights[0]))
+        print(len(res.weights[0][0]))
+        print(sum(res.weights[0][0]))
+        #self.atten_weight = res.weight
 
         self.training.time += time.time() - start_time
         self.training.steps += 1
@@ -529,6 +536,10 @@ class TranslationModel:
                 if sgd_learning_rate is not None:
                     self.learning_rate.assign(sgd_learning_rate).eval()
                 self.training.last_decay = global_step  # reset learning rate decay
+
+        #if steps_per_checkpoint and global_step % steps_per_checkpoint == 0:
+        #    symmary = 'attention weight: {}'.format(self.atten_weight)
+        #    utils.log(summary)
 
         if steps_per_checkpoint and global_step % steps_per_checkpoint == 0:
             loss = self.training.loss / self.training.steps
