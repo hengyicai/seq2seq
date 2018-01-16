@@ -2,13 +2,32 @@ import numpy as np
 import tensorflow as tf
 import re
 import functools
-
+from translate import segment
 from translate import utils
 from translate import models
 from translate import evaluation
 from translate import beam_search
 from collections import namedtuple
 
+N_GRAM_FILE = '../knowledge/2gram.prob'
+TRANSFER_FILE = '../knowledge/transfer.prob'
+VOCAB_IN_FILE = '../data/PinYin/vocab.in'
+VOCAB_OUT_FILE = '../data/PinYin/vocab.out'
+def load_prob(prob_f):
+    probs = {}
+    with open(prob_f) as f:
+        lines = [tuple(item.strip().split(' ')) for item in f.readlines()]
+        for tuple_item in lines:
+            probs[(tuple_item[0][0], tuple_item[0][1])] = float(tuple_item[1])
+    return probs
+
+def map_dict(prob_f):
+    probs = {}
+    linecount = 0
+    for line in open(prob_f):
+        probs[linecount] = line.strip()
+        linecount += 1
+    return probs
 
 class Seq2SeqModel(object):
     def __init__(self, encoders, decoders, learning_rate, global_step, max_gradient_norm, use_dropout=False,
@@ -118,6 +137,11 @@ class Seq2SeqModel(object):
         self.beam_outputs = tf.expand_dims(tf.argmax(self.outputs[0], axis=2), axis=1)
         self.beam_scores = tf.zeros(shape=[tf.shape(self.beam_outputs)[0], 1])
         self.beam_size = 1
+        # {(l1,l2): value}
+        self.t_prob = load_prob(TRANSFER_FILE)
+        self.b_prob = load_prob(N_GRAM_FILE)
+        self.vocab_in = map_dict(VOCAB_IN_FILE)
+        self.vocab_out = map_dict(VOCAB_OUT_FILE)
 
     def create_beam_op(self, models, beam_size, len_normalization):
         self.beam_size = beam_size
@@ -223,9 +247,50 @@ class Seq2SeqModel(object):
         return namedtuple('output', 'loss weights baseline_loss')(res['loss'], res.get('weights'),
                                                                   res.get('baseline_loss'))
 
-    def calculate_true_alignments(self, encoder_inputs, targets, input_length):
+    def transfer_probability(self, x, y):
+        return self.t_prob[(x, y)] if (x, y) in self.t_prob else float(10e-5)
 
-        pass
+    def ngram_probability(self, inputs, i):
+        bigram_key = ('~', inputs[0]) if i == 0 else (inputs[i - 1], inputs[i])
+        if bigram_key in self.b_prob:
+            return self.b_prob[bigram_key]
+        else:
+            return float(10e-5)
+
+    def calculate_single_align(self, inputs, targets):
+        """
+        :param inputs: ['n','h','m',<EOS>,...,<EOS>]
+        :param targets: ['ni', 'hao','ma',<EOS>]
+        :return:
+        """
+        ret_mat = np.zero((len(inputs), len(targets) - 1))
+        margin_input = []
+        margin_target = []
+        for item in inputs:
+            if item in utils._START_VOCAB:
+                continue
+            else:
+                margin_input.append(item)
+        for item in targets:
+            if item in utils._START_VOCAB:
+                continue
+            else:
+                margin_target.append(item)
+        align_result = segment.calc_segment(''.join(margin_input),'\''.join(margin_target))
+        for i in range(len(margin_input)):
+            for j in range(len(margin_target)):
+                if_align = align_result[(i,j)] if (i,j) in align_result else 0
+                ret_mat[i][j] = max(
+                    [self.transfer_probability(margin_input[i], item) for item in margin_target[j]]) * self.ngram_probability(
+                    margin_input, i) * if_align
+        return ret_mat
+
+    def calculate_true_alignments(self, encoder_inputs, targets, input_length):
+        sum_align = []
+        for m_inputs, m_targets in zip(encoder_inputs[0], targets[0]):
+            single_align = self.calculate_single_align([ self.vocab_in[int(item)] for item in  m_inputs],[ self.vocab_out[int(item)] for item in  m_targets])
+            sum_align.append(single_align)
+        return sum_align
 
     def step(self, data, update_model=True, align=False, use_sgd=False, **kwargs):
         if update_model:
