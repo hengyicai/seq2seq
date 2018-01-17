@@ -366,7 +366,7 @@ class Seq2SeqModel(object):
             output_feed['weights'] = self.attention_weights
 
         res = tf.get_default_session().run(output_feed, input_feed)
-        return [res['outputs'][:, :, :]], res.get('weights')
+        return [res['outputs'][:, 0, :]], res.get('weights')
 
     def get_batch(self, data, decoding=False):
         """
