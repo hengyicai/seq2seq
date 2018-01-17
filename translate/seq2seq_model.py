@@ -292,6 +292,8 @@ class Seq2SeqModel(object):
             sum = float(0.0)
             for j in range(len(ret_mat[0])):
                 sum += float(ret_mat[i][j])
+            if sum == 0:
+                continue
             for j in range(len(ret_mat[0])):
                 ret_mat[i][j] = float(ret_mat[i][j])/sum
 
