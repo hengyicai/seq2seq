@@ -1152,6 +1152,14 @@ def sequence_loss(logits, targets, weights,
         # 确保 atten_weights 的 shape 已知
         utils.log("Use custom cost function!")
         cost = tf.reduce_sum(log_perp) + tf.multiply(tf.nn.l2_loss(tf.subtract(true_alignments, atten_weights)), 2)
+        origincost =  tf.reduce_sum(log_perp)
+        gap = tf.multiply(tf.nn.l2_loss(tf.subtract(true_alignments, atten_weights)), 2)
+        utils.log("origin cost")
+        utils.log(origincost)
+        utils.log("new cost")
+        utils.log(cost)
+        utils.log("gap")
+        utils.log(gap)
     else:
         cost = tf.reduce_sum(log_perp)
 
