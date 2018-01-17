@@ -148,6 +148,7 @@ class TranslationModel:
 
     def decode_batch(self, sentence_tuples, batch_size, remove_unk=False, fix_edits=True, unk_replace=False,
                      align=False, reverse=False, output=None):
+        utils.log("start decode batch")
         if batch_size == 1:
             batches = ([sentence_tuple] for sentence_tuple in sentence_tuples)  # lazy
         else:
@@ -166,6 +167,11 @@ class TranslationModel:
         for batch_id, batch in enumerate(batches):
             token_ids = list(map(map_to_ids, batch))
             batch_token_ids, batch_weights = self.seq2seq_model.greedy_decoding(token_ids, align=unk_replace or align)
+            utils.log("batch_token_ids")
+            utils.log(batch_token_ids)
+            utils.log(len(batch_token_ids[0]))
+            utils.log(len(batch_token_ids[0][0]))
+            utils.log(len(batch_token_ids[0][0][0]))
             batch_token_ids = zip(*batch_token_ids)
 
             for sentence_id, (src_tokens, trg_token_ids) in enumerate(zip(batch, batch_token_ids)):
@@ -333,9 +339,15 @@ class TranslationModel:
             output = [None] * len(filenames)
 
         scores = []
+        utils.log('show output')
+        utils.log(output)
 
         # evaluation on multiple corpora
         for dev_id, (filenames_, output_, prefix) in enumerate(zip(filenames, output, self.dev_prefix)):
+            utils.log('filenames, output, self.dev_prefix')
+            utils.log(filenames)
+            utils.log(output)
+
             if self.dev_batches:
                 dev_batches = self.dev_batches[dev_id]
                 dev_loss = sum(self.seq2seq_model.step(batch, update_model=False).loss * len(batch)
@@ -357,9 +369,8 @@ class TranslationModel:
 
             hypotheses = []
             references = []
-
+            utils.log("making hypotheses")
             output_file = None
-
             try:
                 if output_ is not None:
                     output_file = open(output_, 'w', encoding='utf-8')
@@ -369,6 +380,7 @@ class TranslationModel:
                 src_sentences = list(zip(*lines_[:len(self.src_ext)]))
                 trg_sentences = list(zip(*lines_[len(self.src_ext):]))
 
+                utils.log("making decode_batch")
                 hypothesis_iter = self.decode_batch(lines, self.batch_size, remove_unk=remove_unk,
                                                     fix_edits=fix_edits, unk_replace=unk_replace)
 
