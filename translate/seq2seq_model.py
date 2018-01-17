@@ -287,6 +287,14 @@ class Seq2SeqModel(object):
                 #    margin_input, i) * if_align
                 ret_mat[j][i] = max(
                     [self.transfer_probability(margin_input[i], item) for item in margin_target[j]]) * if_align
+        #normalization
+        for i in range(len(ret_mat)):
+            sum = float(0.0)
+            for j in range(len(ret_mat[0])):
+                sum += float(ret_mat[i][j])
+            for j in range(len(ret_mat[0])):
+                ret_mat[i][j] = float(ret_mat[i][j])/sum
+
         return ret_mat.tolist()
 
     def calculate_true_alignments(self, encoder_inputs, targets, input_length):
