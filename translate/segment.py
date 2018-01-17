@@ -225,6 +225,10 @@ def MultipleOutput(list, userpinyin, targetlen):
 
 
 def calc_segment(userinput, userpinyin):
+    print("userinput")
+    print(userinput)
+    print("userpinyin")
+    print(userpinyin)
     linenum = 0
     scorelist = []
     resultlist = []
@@ -234,6 +238,8 @@ def calc_segment(userinput, userpinyin):
             inputcount += 1
     result = ""
     Itetator(0, userinput, userpinyin, inputcount, result, scorelist, resultlist)  # 切分
+    print("resultlist")
+    print(resultlist)
     if len(scorelist) == 0:
         print("Wrong Split!")
         return

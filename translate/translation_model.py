@@ -518,11 +518,12 @@ class TranslationModel:
 
         self.training.loss += res.loss
         self.training.baseline_loss += getattr(res, 'baseline_loss', 0)
-        print(res.weights)
-        print(len(res.weights))
-        print(len(res.weights[0]))
-        print(len(res.weights[0][0]))
-        print(sum(res.weights[0][0]))
+        utils.log("weight_juzhen")
+        utils.log(res.weights)
+        utils.log(len(res.weights))
+        utils.log(len(res.weights[0]))
+        utils.log(len(res.weights[0][0]))
+        utils.log(sum(res.weights[0][0]))
         utils.log("next_data")
         utils.log(next_data)
         # self.atten_weight = res.weight
