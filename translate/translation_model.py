@@ -137,10 +137,12 @@ class TranslationModel:
 
     def read_vocab(self):
         # don't try reading vocabulary for encoders that take pre-computed features
+        # [({key:val, key:val,....}, [word, word, ...., word]), (), (), () ,....., ()]
         self.vocabs = [
             None if binary else utils.initialize_vocabulary(vocab_path)
             for vocab_path, binary in zip(self.filenames.vocab, self.binary)
         ]
+        # trg_vocab: [(name1: {key:val, key:val,....}, name2:[word, word, ...., word])]
         self.src_vocab, self.trg_vocab = self.vocabs[:len(self.src_ext)], self.vocabs[len(self.src_ext):]
 
     def decode_sentence(self, sentence_tuple, remove_unk=False):
@@ -169,30 +171,50 @@ class TranslationModel:
             batch_token_ids, batch_weights = self.seq2seq_model.greedy_decoding(token_ids, align=unk_replace or align)
             utils.log("batch_token_ids")
             utils.log(batch_token_ids)
+            utils.log(len(batch_token_ids))
             utils.log(len(batch_token_ids[0]))
             utils.log(len(batch_token_ids[0][0]))
             utils.log(len(batch_token_ids[0][0][0]))
             batch_token_ids = zip(*batch_token_ids)
 
             for sentence_id, (src_tokens, trg_token_ids) in enumerate(zip(batch, batch_token_ids)):
+                # trg_token_ids, shape(64,10,50), [[[....50num....],[....50num....],[....50num....],....,[....50num....]]]
                 line_id += 1
+
                 trg_tokens = []
 
+                # for single_trg_token_id in trg_token_ids:
+                # single_trg_token_id, shape(50), [....50num....]
                 for trg_token_ids_, vocab in zip(trg_token_ids, self.trg_vocab):
-                    trg_token_ids_ = list(trg_token_ids_)  # from np array to list
-                    if utils.EOS_ID in trg_token_ids_:
-                        trg_token_ids_ = trg_token_ids_[:trg_token_ids_.index(utils.EOS_ID)]
+                    # trg_token_ids_, shape(10,50)
+                    top_10_trg_tokens = []
+                    for single_trg_token_ids in trg_token_ids_:
+                        # single_trg_token_ids, [,,,,,,,] 50 nums
+                        single_trg_token_ids = list(single_trg_token_ids)
+                        if utils.EOS_ID in single_trg_token_ids:
+                            single_trg_token_ids = single_trg_token_ids[:single_trg_token_ids.index(utils.EOS_ID)]
+                        single_trg_token_ids = [vocab.reverse[i] if i < len(vocab.reverse) else utils._UNK
+                                                for i in single_trg_token_ids]
+                        top_10_trg_tokens.append(single_trg_token_ids)
 
-                    trg_tokens_ = [vocab.reverse[i] if i < len(vocab.reverse) else utils._UNK
-                                   for i in trg_token_ids_]
-                    trg_tokens.append(trg_tokens_)
+                    # trg_token_ids_ = list(trg_token_ids_)  # from np array to list
+                    # if utils.EOS_ID in trg_token_ids_:
+                    #     trg_token_ids_ = trg_token_ids_[:trg_token_ids_.index(utils.EOS_ID)]
+                    #
+                    # trg_tokens_ = [vocab.reverse[i] if i < len(vocab.reverse) else utils._UNK
+                    #            for i in trg_token_ids_]
+                    # trg_tokens.append(trg_tokens_)
+                    trg_tokens.append(top_10_trg_tokens)
+                    # trg_tokens, shape(64, 10, ?)
+                #   beam_trg_tokens.append(trg_tokens)
+                #   trg_tokens = []
 
                 if align:
                     weights_ = batch_weights[sentence_id].squeeze()
                     max_len_ = weights_.shape[1]
                     src_tokens_ = src_tokens[0].split()[:max_len_ - 1] + [utils._EOS]
                     src_tokens_ = [token if token in self.src_vocab[0].vocab else utils._UNK for token in src_tokens_]
-                    trg_tokens_ = trg_tokens[0][:weights_.shape[0] - 1] + [utils._EOS]
+                    trg_tokens_ = trg_tokens[0][0][:weights_.shape[0] - 1] + [utils._EOS]
 
                     weights_ = weights_[:len(trg_tokens_), :len(src_tokens_)]
                     output_file = output and '{}.{}.pdf'.format(output, line_id)
@@ -210,8 +232,11 @@ class TranslationModel:
                                 token = self.lexicon[token]
                         return token
 
-                    trg_tokens[0] = [replace(token, align_id) for align_id, token in zip(align_ids, trg_tokens[0])]
+                    for i in range(len(trg_tokens[0])):
+                        trg_tokens[0][i] = [replace(token, align_id) for align_id, token in
+                                            zip(align_ids, trg_tokens[0][i])]
 
+                #########################################################################
                 if self.pred_edits:
                     # first output is ops, second output is words
                     raw_hypothesis = ' '.join('_'.join(tokens) for tokens in zip(*trg_tokens))
@@ -221,15 +246,27 @@ class TranslationModel:
                     # FIXME: char-level
                 else:
                     trg_tokens = trg_tokens[0]
-                    raw_hypothesis = ''.join(trg_tokens) if self.char_output else ' '.join(trg_tokens)
+                    raw_hypothesis = []
+                    for single_trg_tokens in trg_tokens:
+                        single_raw_hypothesis = ''.join(single_trg_tokens) if self.char_output else ' '.join(
+                            single_trg_tokens)
+                        raw_hypothesis.append(single_raw_hypothesis)
+                    # raw_hypothesis = ''.join(trg_tokens) if self.char_output else ' '.join(trg_tokens)
 
                 if remove_unk:
-                    trg_tokens = [token for token in trg_tokens if token != utils._UNK]
+                    for i in range(len(trg_tokens)):
+                        trg_tokens[i] = [token for token in trg_tokens[i] if token != utils._UNK]
 
                 if self.char_output:
-                    hypothesis = ''.join(trg_tokens)
+                    hypothesis = []
+                    for i in range(len(trg_tokens)):
+                        hypothesis.append(''.join(trg_tokens[i]))
+                    # hypothesis = ''.join(trg_tokens)
                 else:
-                    hypothesis = ' '.join(trg_tokens).replace('@@ ', '')  # merge subwords units
+                    hypothesis = []
+                    for i in range(len(trg_tokens)):
+                        hypothesis.append(' '.join(trg_tokens[i]).replace('@@ ', ''))
+                    # hypothesis = ' '.join(trg_tokens).replace('@@ ', '')  # merge subwords units
 
                 yield hypothesis, raw_hypothesis
 
@@ -392,14 +429,18 @@ class TranslationModel:
                         reference = reference[0]  # single output for now
 
                     hypothesis, raw = hypothesis
-
+                    # hypothesis: [10items],each item is a "token sequence"
                     hypotheses.append(hypothesis)
                     references.append(reference.strip().replace('@@ ', ''))
 
                     if output_file is not None:
                         if raw_output:
                             hypothesis = raw
-                        line = hypothesis + '\n'
+                        line = "source:\t" + sources + "\nref:\t" + reference + "\n"
+                        for item in hypothesis:
+                            line += item + '\n'
+                        line += "\n"
+                        # line = hypothesis + '\n'
                         output_file.write(line)
                         output_file.flush()
 
@@ -426,7 +467,11 @@ class TranslationModel:
                             reversed_ = fun.reversed
                         except AttributeError:
                             reversed_ = False
-                        score, score_summary = fun(hypotheses, references)
+
+                        func_arg = []
+                        for item in hypotheses:
+                            func_arg.append(item[0])
+                        score, score_summary = fun(func_arg, references)
                         summary = summary or score_summary
 
                     scores_.append((score_function, score, reversed_))
@@ -453,7 +498,7 @@ class TranslationModel:
         self.init_training(**kwargs)
 
         if (loss_function == 'reinforce' and use_baseline and baseline_steps > 0 and
-                    self.baseline_step.eval() < baseline_steps):
+                self.baseline_step.eval() < baseline_steps):
             utils.log('pre-training reinforce baseline')
             for i in range(baseline_steps - self.baseline_step.eval()):
                 self.seq2seq_model.reinforce_step(next(self.batch_iterator), update_model=False,
@@ -548,7 +593,7 @@ class TranslationModel:
 
         if decay_after_n_epoch is not None and self.batch_size * global_step >= decay_after_n_epoch * self.train_size:
             if decay_every_n_epoch is not None and (self.batch_size * (global_step - self.training.last_decay)
-                                                        >= decay_every_n_epoch * self.train_size):
+                                                    >= decay_every_n_epoch * self.train_size):
                 self.learning_rate_decay_op.eval()
                 utils.debug('  decaying learning rate to: {:.3g}'.format(self.learning_rate.eval()))
                 self.training.last_decay = global_step
