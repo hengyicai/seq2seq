@@ -436,9 +436,9 @@ class TranslationModel:
                     if output_file is not None:
                         if raw_output:
                             hypothesis = raw
-                        line = "source:\t" + sources + "\nref:\t" + reference + "\n"
+                        line = "source:\t" + str(sources) + "\nref:\t" + str(reference) + "\n"
                         for item in hypothesis:
-                            line += item + '\n'
+                            line += str(item) + '\n'
                         line += "\n"
                         # line = hypothesis + '\n'
                         output_file.write(line)
